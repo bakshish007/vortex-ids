@@ -53,38 +53,38 @@ A dedicated Tkinter-based desktop application (`red-team/attacker_gui.py`) desig
 ```mermaid
 flowchart TD
     subgraph Attacker_Workstation ["Attacker PC / Red Team Workstation"]
-        GUI["Red Team GUI Console\n(red-team/attacker_gui.py)"]
-        CLI["CLI Attack Simulator\n(simulate-attacks.py)"]
-        NMAP["Nmap Engine\n(Real Scans & Script Probes)"]
-        GUI -->|Live Probes / SYN Packets| NET["Campus LAN / Local IP Target"]
-        GUI -->|Direct Incident Injection| REST
-        CLI -->|Simulated Vectors| REST
-        NMAP -->|Network Probes| NET
+        GUI["Red Team GUI Console - attacker_gui.py"]
+        CLI["CLI Attack Simulator - simulate-attacks.py"]
+        NMAP["Nmap Engine - Real Scans and Probes"]
+        GUI -->|"Live Probes and SYN Packets"| NET["Campus LAN / Local IP Target"]
+        GUI -->|"Direct Incident Injection"| REST["Express Ingestion API - Port 3001"]
+        CLI -->|"Simulated Vectors"| REST
+        NMAP -->|"Network Probes"| NET
     end
 
     subgraph Campus_Network ["Campus Network Edge (Raspberry Pi / Router / Host)"]
-        NET --> NIC["Physical Interface (eth0 / wlan0 / Loopback)"]
-        NIC -->|Raw Frames| BPF["Kernel BPF Filter Engine\n(tcp[13] & 2 != 0 | port 22/3389)"]
-        BPF -->|Filtered Packets| SNIFFER["Scapy Stateful Sniffer\n(agent.py)"]
-        RULES["Dynamic rules.json\n(Watchdog Hot-Reload)"] -.->|Live In-Memory Rules| SNIFFER
-        SYS["psutil Telemetry Loop\n(CPU & RAM Tracker)"] -->|Edge Metrics (3s)| TEL_OUT["HTTP POST /api/telemetry"]
-        SNIFFER -->|Detected Attack Event| ALERT_OUT["HTTP POST /api/alerts"]
+        NET --> NIC["Physical Interface - eth0 / wlan0 / Loopback"]
+        NIC -->|"Raw Frames"| BPF["Kernel BPF Filter Engine - tcp SYN Filter"]
+        BPF -->|"Filtered Packets"| SNIFFER["Scapy Stateful Sniffer - agent.py"]
+        RULES["Dynamic rules.json - Watchdog Hot-Reload"] -.->|"Live In-Memory Rules"| SNIFFER
+        SYS["psutil Telemetry Loop - CPU and RAM Tracker"] -->|"Edge Metrics every 3s"| TEL_OUT["HTTP POST /api/telemetry"]
+        SNIFFER -->|"Detected Attack Event"| ALERT_OUT["HTTP POST /api/alerts"]
     end
 
-    subgraph Backend_Cluster ["IDS Central Controller (Node.js & Native Store)"]
-        ALERT_OUT --> REST["Express Ingestion API (Port 3001)"]
+    subgraph Backend_Cluster ["IDS Central Controller (Node.js and Native Store)"]
+        ALERT_OUT --> REST
         TEL_OUT --> REST
-        REST --> PLAYBOOK["Deterministic Playbook Engine\n(Threat Mapping & iptables Generator)"]
-        PLAYBOOK --> DB[("Embedded Storage\nalerts.json / Memory Ring Buffer")]
-        REST -->|WebSocket Events\nnew_alert & system_metrics| SOCKET["Socket.io Real-Time Hub"]
-        REST --> CSV["Compliance Reporter\n(GET /api/reports/csv)"]
+        REST --> PLAYBOOK["Deterministic Playbook Engine - iptables Generator"]
+        PLAYBOOK --> DB[("Embedded Storage - alerts.json Ring Buffer")]
+        REST -->|"WebSocket Real-Time Events"| SOCKET["Socket.io Real-Time Hub"]
+        REST --> CSV["Compliance Reporter - GET /api/reports/csv"]
     end
 
     subgraph SOC_Frontend ["Next.js Enterprise SOC Dashboard (Port 3000)"]
-        SOCKET --> DASH["Dark Mode SOC Console (zinc-950)"]
-        DASH --> TICKET["Threat Feed Ticker (Severity Coded)"]
-        DASH --> TELEM["Live Edge Telemetry Chart (Recharts)"]
-        DASH --> MITIG["Instant Mitigation Script Viewer & Downloader"]
+        SOCKET --> DASH["Dark Mode SOC Console"]
+        DASH --> TICKET["Threat Feed Ticker"]
+        DASH --> TELEM["Live Edge Telemetry Chart"]
+        DASH --> MITIG["Instant Mitigation Script Viewer"]
         DASH --> EXPORT["1-Click 24h CSV Report Downloader"]
     end
 ```
