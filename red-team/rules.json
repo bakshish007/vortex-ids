@@ -1,0 +1,388 @@
+{
+  "_comment": "AegisCampus IDS & Red-Team Attack Simulation Rules Dictionary. Catalogs detection thresholds, signatures, scan profiles, and attack vectors.",
+
+  "detection_thresholds": {
+    "port_scan_threshold": 15,
+    "port_scan_window_seconds": 2.0,
+    "brute_force_threshold": 5,
+    "brute_force_window_seconds": 10.0,
+    "service_brute_threshold": 5,
+    "service_brute_window_seconds": 10.0,
+    "http_flood_threshold": 20,
+    "http_flood_window_seconds": 5.0,
+    "icmp_flood_threshold": 10,
+    "icmp_flood_window_seconds": 3.0,
+    "udp_flood_threshold": 30,
+    "udp_flood_window_seconds": 3.0,
+    "dns_flood_threshold": 20,
+    "dns_flood_window_seconds": 5.0,
+    "syn_flood_threshold": 50,
+    "syn_flood_window_seconds": 2.0,
+    "arp_spoof_threshold": 5,
+    "arp_spoof_window_seconds": 3.0,
+    "slow_scan_threshold": 8,
+    "slow_scan_window_seconds": 60.0,
+    "xmas_scan_threshold": 3,
+    "null_scan_threshold": 3,
+    "fin_scan_threshold": 3,
+    "fragmentation_threshold": 20,
+    "fragmentation_window_seconds": 5.0,
+    "connection_flood_threshold": 100,
+    "connection_flood_window_seconds": 10.0,
+    "login_failure_threshold": 5,
+    "login_failure_window_seconds": 30.0,
+    "cooldown_seconds": 30
+  },
+
+  "scan_profiles": {
+    "SYN_STEALTH": {
+      "id": "SCAN-01",
+      "name": "TCP SYN Stealth Scan",
+      "category": "Reconnaissance",
+      "severity": "HIGH",
+      "mitre_attack_id": "T1046",
+      "nmap_args": ["-sS", "-T4", "--open"],
+      "tcp_flags": "SYN_ONLY",
+      "description": "Half-open scanning technique sending raw SYN packets without completing the 3-way handshake.",
+      "pattern": "Rapid TCP SYN packets across multiple ports within short time window without ACK",
+      "default_ports": [21, 22, 23, 25, 80, 135, 139, 443, 445, 1433, 3306, 3389, 5432, 8080],
+      "detection_rule": "unique_ports >= port_scan_threshold within port_scan_window_seconds"
+    },
+    "TCP_CONNECT": {
+      "id": "SCAN-02",
+      "name": "TCP Full Connect Scan",
+      "category": "Reconnaissance",
+      "severity": "MEDIUM",
+      "mitre_attack_id": "T1046",
+      "nmap_args": ["-sT", "-T4"],
+      "tcp_flags": "SYN_ACK_RST",
+      "description": "Establishes full 3-way TCP connections (SYN, SYN/ACK, ACK) then closes via RST or FIN.",
+      "pattern": "Sequential standard socket connect attempts across port range",
+      "default_ports": [22, 80, 443, 3389, 8080],
+      "detection_rule": "unique_ports >= 10 within 3.0s"
+    },
+    "FIN_SCAN": {
+      "id": "SCAN-03",
+      "name": "TCP FIN Stealth Scan",
+      "category": "Evasion Scanning",
+      "severity": "HIGH",
+      "mitre_attack_id": "T1046",
+      "nmap_args": ["-sF", "-T4"],
+      "tcp_flags": "FIN_ONLY",
+      "description": "Sends packets with only the FIN flag set to bypass stateless packet filters and firewalls.",
+      "pattern": "Inbound TCP packets bearing FIN flag without prior established session state",
+      "default_ports": [21, 22, 80, 443, 445, 8080],
+      "detection_rule": "fin_packets >= fin_scan_threshold within 5.0s"
+    },
+    "XMAS_SCAN": {
+      "id": "SCAN-04",
+      "name": "TCP Xmas Tree Scan",
+      "category": "Evasion Scanning",
+      "severity": "HIGH",
+      "mitre_attack_id": "T1046",
+      "nmap_args": ["-sX", "-T4"],
+      "tcp_flags": "FIN_PSH_URG",
+      "description": "Packets lit up like a Christmas tree with FIN, PSH, and URG flags set simultaneously.",
+      "pattern": "RFC 793 violation with FIN+PSH+URG set on TCP header",
+      "default_ports": [22, 80, 139, 445, 3389],
+      "detection_rule": "xmas_packets >= xmas_scan_threshold within 5.0s"
+    },
+    "NULL_SCAN": {
+      "id": "SCAN-05",
+      "name": "TCP NULL Scan",
+      "category": "Evasion Scanning",
+      "severity": "HIGH",
+      "mitre_attack_id": "T1046",
+      "nmap_args": ["-sN", "-T4"],
+      "tcp_flags": "NO_FLAGS",
+      "description": "Sends packets with zero TCP control flags set to probe for non-compliant RFC 793 stacks.",
+      "pattern": "TCP packet with all flag bits set to 0",
+      "default_ports": [21, 22, 23, 80, 443],
+      "detection_rule": "null_packets >= null_scan_threshold within 5.0s"
+    },
+    "ACK_SCAN": {
+      "id": "SCAN-06",
+      "name": "TCP ACK Firewall Mapping Scan",
+      "category": "Reconnaissance",
+      "severity": "MEDIUM",
+      "mitre_attack_id": "T1046",
+      "nmap_args": ["-sA", "-T4"],
+      "tcp_flags": "ACK_ONLY",
+      "description": "Maps firewall rule sets and determines whether ports are filtered or unfiltered.",
+      "pattern": "Unsolicited ACK packets without established connection state",
+      "default_ports": [80, 443, 8080],
+      "detection_rule": "unsolicited_ack_count >= 15 within 2.0s"
+    },
+    "UDP_SCAN": {
+      "id": "SCAN-07",
+      "name": "UDP Port Sweep",
+      "category": "Reconnaissance",
+      "severity": "MEDIUM",
+      "mitre_attack_id": "T1046",
+      "nmap_args": ["-sU", "--top-ports", "20", "-T4"],
+      "protocol": "UDP",
+      "description": "Sends 0-byte UDP packets to target ports; ICMP Port Unreachable indicates closed port.",
+      "pattern": "Burst of UDP datagrams to disparate high-order or service UDP ports",
+      "default_ports": [53, 67, 68, 69, 123, 137, 138, 161, 162, 500, 1194, 1883],
+      "detection_rule": "udp_probes >= 10 within 3.0s"
+    },
+    "PING_SWEEP": {
+      "id": "SCAN-08",
+      "name": "ICMP Host Discovery / Ping Sweep",
+      "category": "Reconnaissance",
+      "severity": "LOW",
+      "mitre_attack_id": "T1018",
+      "nmap_args": ["-sn", "-T4"],
+      "protocol": "ICMP",
+      "description": "Determines active hosts on network segment using ICMP Echo Requests.",
+      "pattern": "High rate of ICMP type 8 (Echo Request) packets across CIDR block",
+      "default_ports": [0],
+      "detection_rule": "icmp_echo_rate >= icmp_flood_threshold within icmp_flood_window_seconds"
+    },
+    "OS_DETECT": {
+      "id": "SCAN-09",
+      "name": "Remote OS Fingerprinting",
+      "category": "Reconnaissance",
+      "severity": "HIGH",
+      "mitre_attack_id": "T1082",
+      "nmap_args": ["-O", "--osscan-guess"],
+      "description": "Analyzes TCP/IP stack implementation nuances (window size, options, TTL, ISN sampling).",
+      "pattern": "Unusual probe sequence of varied flag combinations and bogus TCP options",
+      "default_ports": [80, 443, 22, 135],
+      "detection_rule": "distinct_tcp_option_anomalies >= 4 within 5.0s"
+    },
+    "VERSION_DETECT": {
+      "id": "SCAN-10",
+      "name": "Service Version Probing (-sV)",
+      "category": "Reconnaissance",
+      "severity": "MEDIUM",
+      "mitre_attack_id": "T1046",
+      "nmap_args": ["-sV", "--version-intensity", "7"],
+      "description": "Sends application-layer probe payloads to grab service banners and daemon versions.",
+      "pattern": "Banner grabbing strings sent across open listening TCP ports",
+      "default_ports": [21, 22, 25, 80, 443, 3306, 5432, 8080],
+      "detection_rule": "protocol_mismatch_or_banner_probe >= 5 within 10.0s"
+    },
+    "AGGRESSIVE_SCAN": {
+      "id": "SCAN-11",
+      "name": "Comprehensive Aggressive Scan (-A)",
+      "category": "Reconnaissance",
+      "severity": "CRITICAL",
+      "mitre_attack_id": "T1046",
+      "nmap_args": ["-A", "-T4"],
+      "description": "Combined aggressive audit: OS detection (-O), service version (-sV), default scripts (-sC), and traceroute.",
+      "pattern": "Simultaneous port sweep, banner probe, OS fingerprinting, and NSE script executions",
+      "default_ports": [1, 1024],
+      "detection_rule": "concurrent_scan_types >= 3 within 10.0s"
+    },
+    "VULN_SCAN": {
+      "id": "SCAN-12",
+      "name": "Nmap NSE Vulnerability Audit",
+      "category": "Vulnerability Assessment",
+      "severity": "CRITICAL",
+      "mitre_attack_id": "T1595.002",
+      "nmap_args": ["--script", "vuln", "-T4"],
+      "description": "Executes extensive Nmap Scripting Engine (NSE) vulnerability checks targeting known CVEs.",
+      "pattern": "Exploit signature strings and query probes targeting HTTP, SMB, SSL, and DB endpoints",
+      "default_ports": [80, 443, 445, 8080],
+      "detection_rule": "nse_exploit_payloads_detected >= 1"
+    },
+    "FAST_PORT_SCAN": {
+      "id": "SCAN-13",
+      "name": "Fast Top-100 Port Scan (-F)",
+      "category": "Reconnaissance",
+      "severity": "MEDIUM",
+      "mitre_attack_id": "T1046",
+      "nmap_args": ["-F", "-T4"],
+      "description": "Rapid triage scan checking the top 100 most commonly open ports.",
+      "pattern": "Targeted sweep across Nmap top 100 ports list",
+      "default_ports": [21, 22, 23, 25, 53, 80, 110, 139, 443, 445, 3389, 8080],
+      "detection_rule": "unique_ports >= 12 within 2.0s"
+    },
+    "FULL_PORT_SCAN": {
+      "id": "SCAN-14",
+      "name": "All 65,535 Ports Sweep (-p-)",
+      "category": "Reconnaissance",
+      "severity": "CRITICAL",
+      "mitre_attack_id": "T1046",
+      "nmap_args": ["-p-", "-T4", "--open"],
+      "description": "Exhaustive port scan covering the entire range of 1 to 65535 TCP ports.",
+      "pattern": "Sequential or randomized sweeps covering high-order ephemeral ports > 1024",
+      "default_ports": [1, 65535],
+      "detection_rule": "unique_ports >= 30 within 5.0s"
+    },
+    "SMB_ETERNALBLUE_PROBE": {
+      "id": "SCAN-15",
+      "name": "SMB / EternalBlue Vulnerability Probe",
+      "category": "Exploitation Probe",
+      "severity": "CRITICAL",
+      "mitre_attack_id": "T1210",
+      "nmap_args": ["--script", "smb-vuln-ms17-010", "-p", "445"],
+      "description": "Probes SMBv1 protocol handlers for CVE-2017-0144 (MS17-010 EternalBlue) RCE defect.",
+      "pattern": "SMB Negotiate Protocol Request specifying SMBv1 NT LM 0.12 followed by tree connect probe",
+      "default_ports": [445],
+      "detection_rule": "instant_alert_ports[445] or smb_exploit_signature"
+    },
+    "HTTP_SHELLSHOCK_PROBE": {
+      "id": "SCAN-16",
+      "name": "HTTP Shellshock Probe (CVE-2014-6271)",
+      "category": "Exploitation Probe",
+      "severity": "CRITICAL",
+      "mitre_attack_id": "T1190",
+      "nmap_args": ["--script", "http-shellshock", "-p", "80,8080"],
+      "description": "Tests web endpoints for bash environment variable injection vulnerability in CGI scripts.",
+      "pattern": "User-Agent or Header containing '() { :; };'",
+      "default_ports": [80, 8080],
+      "detection_rule": "header_pattern_match('() { :; };')"
+    }
+  },
+
+  "simulated_traffic_profiles": {
+    "SSH_BRUTE_FORCE": {
+      "name": "SSH Credential Spray / Brute Force",
+      "category": "Brute Force",
+      "target_port": 22,
+      "severity": "HIGH",
+      "mitre_attack_id": "T1110.001",
+      "description": "Repeated authentication connection attempts to Port 22 within a short window."
+    },
+    "RDP_DESKTOP_PROBE": {
+      "name": "RDP Unauthorized Desktop Probe",
+      "category": "Brute Force",
+      "target_port": 3389,
+      "severity": "HIGH",
+      "mitre_attack_id": "T1110.001",
+      "description": "External unauthenticated desktop endpoint sweep and connection probe."
+    },
+    "FTP_BRUTE_FORCE": {
+      "name": "FTP Credential Brute Force",
+      "category": "Brute Force",
+      "target_port": 21,
+      "severity": "MEDIUM",
+      "mitre_attack_id": "T1110.001",
+      "description": "Rapid USER and PASS command dictionary probe."
+    },
+    "MYSQL_BRUTE_FORCE": {
+      "name": "MySQL Authentication Probe",
+      "category": "Brute Force",
+      "target_port": 3306,
+      "severity": "HIGH",
+      "mitre_attack_id": "T1110.001",
+      "description": "High frequency connection attempts targeting database root/admin credentials."
+    },
+    "REDIS_UNAUTH_PROBE": {
+      "name": "Redis Unauthorized Command Access",
+      "category": "Exploitation Probe",
+      "target_port": 6379,
+      "severity": "HIGH",
+      "mitre_attack_id": "T1190",
+      "description": "Unauthenticated access attempting CONFIG SET or rogue replication commands."
+    },
+    "SYN_FLOOD": {
+      "name": "TCP SYN Flood (DoS)",
+      "category": "Denial of Service",
+      "target_port": 80,
+      "severity": "CRITICAL",
+      "mitre_attack_id": "T1498.001",
+      "description": "Saturates TCP half-open connection queues with high-volume SYN frames."
+    },
+    "UDP_FLOOD": {
+      "name": "UDP Packet Flood (DoS)",
+      "category": "Denial of Service",
+      "target_port": 53,
+      "severity": "CRITICAL",
+      "mitre_attack_id": "T1498.001",
+      "description": "Floods target port with raw high-volume UDP datagrams."
+    },
+    "ICMP_ECHO_FLOOD": {
+      "name": "ICMP Ping Flood (DoS)",
+      "category": "Denial of Service",
+      "target_port": 0,
+      "severity": "HIGH",
+      "mitre_attack_id": "T1498",
+      "description": "Oversized ICMP echo request flood attempting network link saturation."
+    },
+    "HTTP_GET_FLOOD": {
+      "name": "Layer-7 HTTP Flood",
+      "category": "Denial of Service",
+      "target_port": 80,
+      "severity": "CRITICAL",
+      "mitre_attack_id": "T1498.002",
+      "description": "High-frequency HTTP requests exhausting application thread pools."
+    },
+    "SLOWLORIS_ATTACK": {
+      "name": "Slowloris Connection Exhaustion",
+      "category": "Denial of Service",
+      "target_port": 80,
+      "severity": "HIGH",
+      "mitre_attack_id": "T1498",
+      "description": "Keeps hundreds of HTTP connections open with slow incomplete headers."
+    },
+    "MAC_SPOOF_ARP_POISON": {
+      "name": "MAC Spoofing / ARP Cache Poisoning",
+      "category": "Network Manipulation",
+      "target_port": 0,
+      "severity": "CRITICAL",
+      "mitre_attack_id": "T1557.002",
+      "description": "Layer-2 hardware address anomaly: IP bound to conflicting MAC address."
+    },
+    "REVERSE_SHELL_PROBE": {
+      "name": "Reverse Shell Listener Probe",
+      "category": "Exploitation Probe",
+      "target_port": 4444,
+      "severity": "CRITICAL",
+      "mitre_attack_id": "T1059.004",
+      "description": "Inbound connection to known Metasploit/Netcat reverse shell ports (4444, 5555, 9001)."
+    },
+    "LOG4SHELL_EXPLOIT": {
+      "name": "Log4Shell JNDI Probe (CVE-2021-44228)",
+      "category": "Exploitation Probe",
+      "target_port": 8080,
+      "severity": "CRITICAL",
+      "mitre_attack_id": "T1190",
+      "description": "Injects '${jndi:ldap://...}' strings into HTTP headers or parameters."
+    }
+  },
+
+  "monitored_ports": [
+    20, 21, 22, 23, 25, 53, 67, 68, 69, 79, 80, 88, 110, 111,
+    119, 123, 135, 137, 138, 139, 143, 161, 162, 177, 179, 194,
+    389, 443, 445, 465, 500, 514, 515, 587, 631, 636, 873, 902,
+    993, 995, 1080, 1194, 1433, 1521, 1723, 1883, 2049, 2082,
+    2083, 2086, 2087, 2181, 2222, 2375, 2376, 2379, 2380, 3000,
+    3128, 3268, 3269, 3306, 3389, 4369, 4444, 4848, 5000, 5432,
+    5555, 5601, 5672, 5900, 5984, 5985, 5986, 6000, 6379, 6443,
+    6667, 7001, 7077, 7199, 7474, 8000, 8008, 8080, 8081, 8082,
+    8088, 8161, 8181, 8443, 8888, 9000, 9001, 9002, 9003, 9042,
+    9090, 9091, 9092, 9093, 9200, 9300, 9418, 9999, 10000, 10050,
+    10051, 11211, 15672, 16379, 16443, 17500, 25565, 27017, 27018,
+    27019, 28017, 50000, 50070, 50075, 50090, 54321, 61616
+  ],
+
+  "instant_alert_ports": {
+    "23": "Telnet Probe Detected",
+    "135": "MS-RPC Probe",
+    "137": "NetBIOS Name Service Probe",
+    "138": "NetBIOS Datagram Probe",
+    "139": "NetBIOS Session Probe",
+    "161": "SNMP Community Sweep",
+    "445": "SMB / EternalBlue Probe",
+    "1433": "MSSQL Direct Probe",
+    "3389": "RDP Unauthorized Probe",
+    "4444": "Metasploit Shell Listener Probe",
+    "5900": "VNC Unauthorized Probe",
+    "6667": "IRC C2 Channel Probe",
+    "31337": "Back Orifice Elite Port Detected",
+    "54321": "Reverse Shell Port Detected"
+  },
+
+  "whitelist_ips": [
+    "127.0.0.1",
+    "192.168.1.1",
+    "10.0.0.1",
+    "127.0.0.254"
+  ],
+
+  "backend_url": "http://localhost:3001"
+}
+
